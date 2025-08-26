@@ -14,22 +14,6 @@ if (!canAccessDashboard()) {
 }
 
 $user = getCurrentUser();
-
-// Conectar a la base de datos para obtener datos
-$db = Database::getInstance();
-$pdo = $db->getConnection();
-
-// Obtener lista de todas las obras para los selects
-$stmt = $pdo->query("SELECT id, codigo, nombre FROM obras WHERE activo = 1 ORDER BY codigo");
-$obras = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Obtener lista de proveedores
-$stmt = $pdo->query("SELECT id, nombre FROM proveedores WHERE activo = 1 ORDER BY nombre");
-$proveedores = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-// Obtener lista de usuarios
-$stmt = $pdo->query("SELECT id, nombre_completo FROM usuarios WHERE activo = 1 ORDER BY nombre_completo");
-$usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -830,6 +814,13 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     <!-- JavaScript -->
     <script>
+        // Variables con datos del servidor (se cargarán via AJAX)
+        let serverData = {
+            obras: [],
+            proveedores: [],
+            usuarios: []
+        };
+
         // Variables globales
         let currentTable = '';
         let currentPage = 1;
@@ -878,7 +869,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-address-book',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: <?= json_encode($proveedores) ?>, required: true},
+                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: 'proveedores', required: true},
                     {name: 'nombre', label: 'Nombre', type: 'text', required: true},
                     {name: 'telefono', label: 'Teléfono', type: 'text'},
                     {name: 'email', label: 'Email', type: 'email'},
@@ -896,7 +887,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     {name: 'codigo', label: 'Código', type: 'text', required: true},
                     {name: 'nombre', label: 'Nombre', type: 'text', required: true},
                     {name: 'descripcion', label: 'Descripción', type: 'textarea'},
-                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: <?= json_encode($proveedores) ?>},
+                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: 'proveedores'},
                     {name: 'direccion_obra', label: 'Dirección Obra', type: 'textarea'},
                     {name: 'fecha_inicio', label: 'Fecha Inicio', type: 'date'},
                     {name: 'fecha_fin', label: 'Fecha Fin', type: 'date'},
@@ -917,7 +908,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-calendar-day',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'obra_id', label: 'Obra', type: 'select', options: <?= json_encode($obras) ?>, required: true},
+                    {name: 'obra_id', label: 'Obra', type: 'select', options: 'obras', required: true},
                     {name: 'fecha', label: 'Fecha', type: 'date', required: true},
                     {name: 'activa', label: 'Activa', type: 'checkbox'},
                     {name: 'observaciones', label: 'Observaciones', type: 'textarea'}
@@ -928,8 +919,8 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-clock',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'obra_id', label: 'Obra', type: 'select', options: <?= json_encode($obras) ?>, required: true},
-                    {name: 'usuario_id', label: 'Trabajador', type: 'select', options: <?= json_encode($usuarios) ?>, required: true},
+                    {name: 'obra_id', label: 'Obra', type: 'select', options: 'obras', required: true},
+                    {name: 'usuario_id', label: 'Trabajador', type: 'select', options: 'usuarios', required: true},
                     {name: 'fecha', label: 'Fecha', type: 'date', required: true},
                     {name: 'hora_entrada', label: 'Hora Entrada', type: 'time'},
                     {name: 'hora_salida', label: 'Hora Salida', type: 'time'},
@@ -948,7 +939,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-chart-line',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'obra_id', label: 'Obra', type: 'select', options: <?= json_encode($obras) ?>, required: true},
+                    {name: 'obra_id', label: 'Obra', type: 'select', options: 'obras', required: true},
                     {name: 'tipo', label: 'Tipo', type: 'select', options: [
                         {value: 'gasto', text: 'Gasto'},
                         {value: 'ingreso', text: 'Ingreso'}
@@ -958,7 +949,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     {name: 'descripcion', label: 'Descripción', type: 'textarea'},
                     {name: 'cantidad', label: 'Cantidad', type: 'number', step: '0.01', required: true},
                     {name: 'fecha', label: 'Fecha', type: 'date', required: true},
-                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: <?= json_encode($proveedores) ?>},
+                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: 'proveedores'},
                     {name: 'documento', label: 'Documento', type: 'text'},
                     {name: 'observaciones', label: 'Observaciones', type: 'textarea'}
                 ]
@@ -968,14 +959,14 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-shopping-cart',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'obra_id', label: 'Obra', type: 'select', options: <?= json_encode($obras) ?>},
+                    {name: 'obra_id', label: 'Obra', type: 'select', options: 'obras'},
                     {name: 'material', label: 'Material', type: 'text', required: true},
                     {name: 'descripcion', label: 'Descripción', type: 'textarea'},
                     {name: 'cantidad', label: 'Cantidad', type: 'number', step: '0.001', required: true},
                     {name: 'unidad', label: 'Unidad', type: 'text'},
                     {name: 'precio_unitario', label: 'Precio Unitario', type: 'number', step: '0.01'},
                     {name: 'precio_total', label: 'Precio Total', type: 'number', step: '0.01'},
-                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: <?= json_encode($proveedores) ?>},
+                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: 'proveedores'},
                     {name: 'fecha_compra', label: 'Fecha Compra', type: 'date'},
                     {name: 'fecha_entrega', label: 'Fecha Entrega', type: 'date'},
                     {name: 'albaran', label: 'Albarán', type: 'text'},
@@ -989,13 +980,13 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-bolt',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'obra_id', label: 'Obra', type: 'select', options: <?= json_encode($obras) ?>},
+                    {name: 'obra_id', label: 'Obra', type: 'select', options: 'obras'},
                     {name: 'tipo_hilo', label: 'Tipo Hilo', type: 'text', required: true},
                     {name: 'descripcion', label: 'Descripción', type: 'textarea'},
                     {name: 'metros', label: 'Metros', type: 'number', step: '0.01', required: true},
                     {name: 'precio_metro', label: 'Precio por Metro', type: 'number', step: '0.001'},
                     {name: 'precio_total', label: 'Precio Total', type: 'number', step: '0.01'},
-                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: <?= json_encode($proveedores) ?>},
+                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: 'proveedores'},
                     {name: 'fecha_uso', label: 'Fecha Uso', type: 'date'},
                     {name: 'observaciones', label: 'Observaciones', type: 'textarea'},
                     {name: 'stock_general', label: 'Stock General', type: 'checkbox'}
@@ -1006,14 +997,14 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-boxes',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'obra_id', label: 'Obra', type: 'select', options: <?= json_encode($obras) ?>},
+                    {name: 'obra_id', label: 'Obra', type: 'select', options: 'obras'},
                     {name: 'material', label: 'Material', type: 'text', required: true},
                     {name: 'descripcion', label: 'Descripción', type: 'textarea'},
                     {name: 'cantidad', label: 'Cantidad', type: 'number', step: '0.001', required: true},
                     {name: 'unidad', label: 'Unidad', type: 'text'},
                     {name: 'precio_unitario', label: 'Precio Unitario', type: 'number', step: '0.01'},
                     {name: 'precio_total', label: 'Precio Total', type: 'number', step: '0.01'},
-                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: <?= json_encode($proveedores) ?>},
+                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: 'proveedores'},
                     {name: 'fecha', label: 'Fecha', type: 'date'},
                     {name: 'observaciones', label: 'Observaciones', type: 'textarea'},
                     {name: 'stock_general', label: 'Stock General', type: 'checkbox'}
@@ -1024,14 +1015,14 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-plug',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'obra_id', label: 'Obra', type: 'select', options: <?= json_encode($obras) ?>},
+                    {name: 'obra_id', label: 'Obra', type: 'select', options: 'obras'},
                     {name: 'producto', label: 'Producto', type: 'text', required: true},
                     {name: 'referencia', label: 'Referencia', type: 'text'},
                     {name: 'descripcion', label: 'Descripción', type: 'textarea'},
                     {name: 'cantidad', label: 'Cantidad', type: 'number', step: '0.001', required: true},
                     {name: 'precio_unitario', label: 'Precio Unitario', type: 'number', step: '0.01'},
                     {name: 'precio_total', label: 'Precio Total', type: 'number', step: '0.01'},
-                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: <?= json_encode($proveedores) ?>},
+                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: 'proveedores'},
                     {name: 'fecha', label: 'Fecha', type: 'date'},
                     {name: 'observaciones', label: 'Observaciones', type: 'textarea'},
                     {name: 'stock_general', label: 'Stock General', type: 'checkbox'}
@@ -1042,7 +1033,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-lightbulb',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'obra_id', label: 'Obra', type: 'select', options: <?= json_encode($obras) ?>},
+                    {name: 'obra_id', label: 'Obra', type: 'select', options: 'obras'},
                     {name: 'tipo_luminaria', label: 'Tipo Luminaria', type: 'text', required: true},
                     {name: 'marca', label: 'Marca', type: 'text'},
                     {name: 'modelo', label: 'Modelo', type: 'text'},
@@ -1050,7 +1041,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     {name: 'cantidad', label: 'Cantidad', type: 'number', step: '0.001', required: true},
                     {name: 'precio_unitario', label: 'Precio Unitario', type: 'number', step: '0.01'},
                     {name: 'precio_total', label: 'Precio Total', type: 'number', step: '0.01'},
-                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: <?= json_encode($proveedores) ?>},
+                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: 'proveedores'},
                     {name: 'fecha', label: 'Fecha', type: 'date'},
                     {name: 'observaciones', label: 'Observaciones', type: 'textarea'},
                     {name: 'stock_general', label: 'Stock General', type: 'checkbox'}
@@ -1061,7 +1052,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-toggle-on',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'obra_id', label: 'Obra', type: 'select', options: <?= json_encode($obras) ?>},
+                    {name: 'obra_id', label: 'Obra', type: 'select', options: 'obras'},
                     {name: 'producto', label: 'Producto', type: 'text', required: true},
                     {name: 'referencia', label: 'Referencia', type: 'text'},
                     {name: 'serie', label: 'Serie', type: 'text'},
@@ -1069,7 +1060,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     {name: 'cantidad', label: 'Cantidad', type: 'number', step: '0.001', required: true},
                     {name: 'precio_unitario', label: 'Precio Unitario', type: 'number', step: '0.01'},
                     {name: 'precio_total', label: 'Precio Total', type: 'number', step: '0.01'},
-                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: <?= json_encode($proveedores) ?>},
+                    {name: 'proveedor_id', label: 'Proveedor', type: 'select', options: 'proveedores'},
                     {name: 'fecha', label: 'Fecha', type: 'date'},
                     {name: 'observaciones', label: 'Observaciones', type: 'textarea'},
                     {name: 'stock_general', label: 'Stock General', type: 'checkbox'}
@@ -1080,7 +1071,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-tools',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'obra_id', label: 'Obra', type: 'select', options: <?= json_encode($obras) ?>},
+                    {name: 'obra_id', label: 'Obra', type: 'select', options: 'obras'},
                     {name: 'titulo', label: 'Título', type: 'text', required: true},
                     {name: 'descripcion', label: 'Descripción', type: 'textarea'},
                     {name: 'urgencia', label: 'Urgencia', type: 'select', options: [
@@ -1094,7 +1085,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         {value: 'en_curso', text: 'En Curso'},
                         {value: 'finalizado', text: 'Finalizado'}
                     ]},
-                    {name: 'asignado_a', label: 'Asignado A', type: 'select', options: <?= json_encode($usuarios) ?>},
+                    {name: 'asignado_a', label: 'Asignado A', type: 'select', options: 'usuarios'},
                     {name: 'fecha_limite', label: 'Fecha Límite', type: 'date'},
                     {name: 'observaciones', label: 'Observaciones', type: 'textarea'}
                 ]
@@ -1104,8 +1095,8 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 icon: 'fas fa-star',
                 fields: [
                     {name: 'id', label: 'ID', type: 'hidden', readonly: true},
-                    {name: 'obra_id', label: 'Obra', type: 'select', options: <?= json_encode($obras) ?>},
-                    {name: 'usuario_id', label: 'Usuario', type: 'select', options: <?= json_encode($usuarios) ?>, required: true},
+                    {name: 'obra_id', label: 'Obra', type: 'select', options: 'obras'},
+                    {name: 'usuario_id', label: 'Usuario', type: 'select', options: 'usuarios', required: true},
                     {name: 'concepto', label: 'Concepto', type: 'text', required: true},
                     {name: 'puntos', label: 'Puntos', type: 'number', required: true},
                     {name: 'fecha', label: 'Fecha', type: 'date', required: true},
@@ -1144,7 +1135,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     {name: 'accion', label: 'Acción', type: 'text', readonly: true},
                     {name: 'datos_anteriores', label: 'Datos Anteriores', type: 'textarea', readonly: true},
                     {name: 'datos_nuevos', label: 'Datos Nuevos', type: 'textarea', readonly: true},
-                    {name: 'usuario_id', label: 'Usuario', type: 'select', options: <?= json_encode($usuarios) ?>, readonly: true},
+                    {name: 'usuario_id', label: 'Usuario', type: 'select', options: 'usuarios', readonly: true},
                     {name: 'ip_address', label: 'IP', type: 'text', readonly: true},
                     {name: 'fecha_accion', label: 'Fecha Acción', type: 'datetime-local', readonly: true}
                 ],
@@ -1155,7 +1146,25 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
         // Funciones principales
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Dashboard cargado correctamente');
+            loadReferenceData();
         });
+
+        async function loadReferenceData() {
+            try {
+                const response = await fetch('api/reference_data.php');
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.message);
+                }
+                
+                serverData = data;
+                console.log('Datos de referencia cargados:', serverData);
+            } catch (error) {
+                console.error('Error cargando datos de referencia:', error);
+                showError('Error cargando datos de referencia: ' + error.message);
+            }
+        }
 
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
@@ -1212,7 +1221,13 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 });
                 
                 const response = await fetch('api/crud.php?' + params);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const result = await response.json();
+                console.log('API Response:', result);
                 
                 if (result.success) {
                     currentData = result.data;
@@ -1221,6 +1236,7 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     showError(result.message || 'Error al cargar los datos');
                 }
             } catch (error) {
+                console.error('Error en fetchTableData:', error);
                 showError('Error de conexión: ' + error.message);
             } finally {
                 showLoading(false);
@@ -1274,7 +1290,14 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     } else if (field.type === 'number' && (field.step === '0.01' || field.step === '0.001')) {
                         value = value ? parseFloat(value).toFixed(2) + '€' : '';
                     } else if (field.type === 'select' && field.options) {
-                        const option = field.options.find(opt => opt.value == value || opt.id == value);
+                        let selectOptions = field.options;
+                        
+                        // Si es una referencia string, buscar en serverData
+                        if (typeof selectOptions === 'string') {
+                            selectOptions = serverData[selectOptions] || [];
+                        }
+                        
+                        const option = selectOptions.find(opt => opt.value == value || opt.id == value);
                         value = option ? (option.text || option.nombre || option.nombre_completo) : value;
                     }
                     
@@ -1414,11 +1437,18 @@ $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
                         formHTML += `<textarea class="form-control" name="${field.name}" ${readonly} ${required}>${value}</textarea>`;
                         break;
                     case 'select':
+                        let selectOptions = field.options;
+                        
+                        // Si es una referencia string, buscar en serverData
+                        if (typeof selectOptions === 'string') {
+                            selectOptions = serverData[selectOptions] || [];
+                        }
+                        
                         formHTML += `<select class="form-select" name="${field.name}" ${readonly} ${required}>
                             <option value="">Seleccionar...</option>
-                            ${field.options.map(opt => {
+                            ${selectOptions.map(opt => {
                                 const optValue = opt.value || opt.id;
-                                const optText = opt.text || opt.nombre || opt.nombre_completo;
+                                const optText = opt.text || opt.nombre || opt.nombre_completo || opt.codigo;
                                 return `<option value="${optValue}" ${optValue == value ? 'selected' : ''}>${optText}</option>`;
                             }).join('')}
                         </select>`;

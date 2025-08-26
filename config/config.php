@@ -3,11 +3,11 @@
  * Configuración general del sistema - Electroventura v2.0
  */
 
-// Configuración de sesión
+// Configuración de sesión (solo si no está ya iniciada)
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.cookie_lifetime', 7200); // 2 horas
     ini_set('session.gc_maxlifetime', 7200);
-    session_start();
+    @session_start();
 }
 
 // Configuración de errores

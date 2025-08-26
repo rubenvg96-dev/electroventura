@@ -1,6 +1,24 @@
 <?php
+// Configuración estricta para evitar cualquier output no deseado
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+
+// Evitar cualquier output antes del JSON
+ob_start();
+
 require_once '../config/config.php';
-requireLogin();
+
+
+
+// Verificar sesión sin iniciar una nueva si ya existe
+if (session_status() === PHP_SESSION_NONE) {
+    @session_start();
+}
+
+if (!isLoggedIn()) {
+    sendJsonResponse(['success' => false, 'message' => 'No autorizado']);
+}
 
 // Configurar headers CORS y JSON
 header('Content-Type: application/json');
@@ -11,6 +29,26 @@ header('Access-Control-Allow-Headers: Content-Type');
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
+}
+
+/**
+ * Función para enviar respuesta JSON limpia
+ */
+function sendJsonResponse($data) {
+    // Limpiar completamente cualquier output previo
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    ob_start();
+    
+    // Asegurar header JSON
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+    }
+    
+    echo json_encode($data);
+    ob_end_flush();
+    exit;
 }
 
 try {
@@ -170,9 +208,16 @@ try {
     }
     
 } catch (Exception $e) {
-    echo json_encode([
+    error_log("Error en API CRUD: " . $e->getMessage() . " - Trace: " . $e->getTraceAsString());
+    sendJsonResponse([
         'success' => false,
-        'message' => $e->getMessage()
+        'message' => $e->getMessage(),
+        'error_details' => [
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'action' => $action ?? 'unknown',
+            'table' => $table ?? 'unknown'
+        ]
     ]);
 }
 
@@ -183,76 +228,61 @@ function handleRead($db, $table, $config) {
     
     $offset = ($page - 1) * $pageSize;
     
-    // Construir consulta base
-    $fields = $config['fields'] ?? ['*'];
-    $selectFields = [];
-    
-    // Agregar campos principales
-    foreach ($fields as $field) {
-        $selectFields[] = "$table.$field";
-    }
-    
-    // Agregar campos de joins si existen
-    $joins = '';
-    if (isset($config['joins'])) {
-        global $tableConfigs;
-        foreach ($config['joins'] as $joinTable => $joinField) {
-            $joins .= " LEFT JOIN $joinTable ON $table.$joinField = $joinTable.id";
-            if (isset($tableConfigs[$joinTable]['display_name'])) {
-                $selectFields[] = "$joinTable.{$tableConfigs[$joinTable]['display_name']} as {$joinTable}_name";
-            } else {
-                $selectFields[] = "$joinTable.nombre as {$joinTable}_name";
+    try {
+        // Consulta simple sin JOINs primero
+        $sql = "SELECT * FROM $table";
+        
+        // Agregar búsqueda si existe
+        $whereConditions = [];
+        $params = [];
+        
+        if (!empty($search) && isset($config['searchable'])) {
+            $searchConditions = [];
+            foreach ($config['searchable'] as $field) {
+                $searchConditions[] = "$field LIKE ?";
+                $params[] = "%$search%";
+            }
+            if (!empty($searchConditions)) {
+                $whereConditions[] = '(' . implode(' OR ', $searchConditions) . ')';
             }
         }
-    }
-    
-    $sql = "SELECT " . implode(', ', $selectFields) . " FROM $table" . $joins;
-    
-    // Agregar búsqueda
-    $whereConditions = [];
-    $params = [];
-    
-    if (!empty($search) && isset($config['searchable'])) {
-        $searchConditions = [];
-        foreach ($config['searchable'] as $field) {
-            $searchConditions[] = "$table.$field LIKE ?";
-            $params[] = "%$search%";
+        
+        if (!empty($whereConditions)) {
+            $sql .= " WHERE " . implode(' AND ', $whereConditions);
         }
-        if (!empty($searchConditions)) {
-            $whereConditions[] = '(' . implode(' OR ', $searchConditions) . ')';
+        
+        // Contar total
+        $countSql = "SELECT COUNT(*) as total FROM $table";
+        if (!empty($whereConditions)) {
+            $countSql .= " WHERE " . implode(' AND ', $whereConditions);
         }
+        
+        $countStmt = $db->prepare($countSql);
+        $countStmt->execute($params);
+        $total = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        // Obtener datos paginados
+        $sql .= " ORDER BY id DESC LIMIT ? OFFSET ?";
+        $params[] = $pageSize;
+        $params[] = $offset;
+        
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode([
+            'success' => true,
+            'data' => $data,
+            'total' => intval($total),
+            'page' => $page,
+            'pageSize' => $pageSize,
+            'sql_debug' => $sql // Para debug temporal
+        ]);
+        
+    } catch (PDOException $e) {
+        error_log("Error SQL en handleRead: " . $e->getMessage() . " - SQL: " . ($sql ?? 'unknown'));
+        throw new Exception("Error en la consulta: " . $e->getMessage());
     }
-    
-    if (!empty($whereConditions)) {
-        $sql .= " WHERE " . implode(' AND ', $whereConditions);
-    }
-    
-    // Contar total
-    $countSql = "SELECT COUNT(*) as total FROM $table" . $joins;
-    if (!empty($whereConditions)) {
-        $countSql .= " WHERE " . implode(' AND ', $whereConditions);
-    }
-    
-    $countStmt = $db->prepare($countSql);
-    $countStmt->execute($params);
-    $total = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
-    
-    // Obtener datos paginados
-    $sql .= " ORDER BY $table.id DESC LIMIT ? OFFSET ?";
-    $params[] = $pageSize;
-    $params[] = $offset;
-    
-    $stmt = $db->prepare($sql);
-    $stmt->execute($params);
-    $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    echo json_encode([
-        'success' => true,
-        'data' => $data,
-        'total' => intval($total),
-        'page' => $page,
-        'pageSize' => $pageSize
-    ]);
 }
 
 function handleCreate($db, $table, $config) {
@@ -302,7 +332,7 @@ function handleCreate($db, $table, $config) {
         // Registrar auditoría
         logAudit($db, $table, $insertId, 'INSERT', null, $data);
         
-        echo json_encode([
+        sendJsonResponse([
             'success' => true,
             'message' => 'Registro creado correctamente',
             'id' => $insertId
@@ -371,7 +401,7 @@ function handleUpdate($db, $table, $config) {
         // Registrar auditoría
         logAudit($db, $table, $id, 'UPDATE', $oldData, $data);
         
-        echo json_encode([
+        sendJsonResponse([
             'success' => true,
             'message' => 'Registro actualizado correctamente'
         ]);
@@ -401,7 +431,7 @@ function handleDelete($db, $table, $config) {
         // Registrar auditoría
         logAudit($db, $table, $id, 'DELETE', $data, null);
         
-        echo json_encode([
+        sendJsonResponse([
             'success' => true,
             'message' => 'Registro eliminado correctamente'
         ]);
@@ -413,9 +443,6 @@ function handleDelete($db, $table, $config) {
 function handleExport($db, $table, $config) {
     // Requerir PhpSpreadsheet para exportación
     require_once '../vendor/autoload.php'; // Ajustar ruta según instalación
-    
-    use PhpOffice\PhpSpreadsheet\Spreadsheet;
-    use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
     
     $search = $_GET['search'] ?? '';
     
