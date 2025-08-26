@@ -1,0 +1,23 @@
+# Archivos y carpetas a ignorar para proyectos PHP
+/vendor/
+/node_modules/
+/.env
+.env.*
+*.log
+logs/
+uploads/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.bak
+*.swp
+*.swo
+*.tmp
+*.cache
+composer.lock
+npm-debug.log
+# Ignorar archivos temporales de sistema
+*.~
+# Ignorar archivos de configuración locales
+config/database.php
